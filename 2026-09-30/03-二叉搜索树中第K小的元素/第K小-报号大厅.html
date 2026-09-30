@@ -1,0 +1,363 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>230 第 K 小 · 报号大厅</title>
+<style>
+  :root{
+    --bg:#fff8ef; --card:#ffffff; --line:#f0e2cc; --ink:#33302b;
+    --orange:#fb8c00; --blue:#1e88e5; --green:#43a047; --gold:#f6b800;
+    --gray:#b9b2a6; --navy:#223047; --red:#e53935;
+  }
+  *{box-sizing:border-box; margin:0; padding:0;}
+  body{
+    background:var(--bg); color:var(--ink); font-family:-apple-system,"PingFang SC","Microsoft YaHei",sans-serif;
+    padding:20px 16px 40px;
+  }
+  .wrap{max-width:1120px; margin:0 auto;}
+  /* ── 头部 ── */
+  .hero{text-align:center; margin-bottom:18px;}
+  .hero h1{font-size:30px; letter-spacing:1px;}
+  .hero h1 .em{filter:drop-shadow(0 2px 0 #e8c98a);}
+  .hero p{color:#7a715f; margin-top:6px; font-size:15px;}
+  .k-picker{margin-top:12px; display:flex; gap:8px; justify-content:center; align-items:center; flex-wrap:wrap;}
+  .k-picker .lbl{font-weight:700;}
+  .kbtn{
+    border:2px solid var(--orange); background:#fff; color:var(--orange);
+    border-radius:999px; padding:6px 16px; font-size:14px; font-weight:700; cursor:pointer;
+  }
+  .kbtn.on{background:var(--orange); color:#fff; box-shadow:0 3px 0 #d96f00;}
+  /* ── 布局 ── */
+  .layout{display:grid; grid-template-columns:1.15fr .85fr; gap:14px; align-items:start;}
+  @media (max-width:860px){ .layout{grid-template-columns:1fr;} }
+  .card{
+    background:var(--card); border:2px solid var(--line); border-radius:16px;
+    padding:14px 16px; box-shadow:0 4px 14px rgba(90,70,40,.07);
+  }
+  .card-title{font-weight:800; margin-bottom:10px; font-size:15px;}
+  /* ── 树舞台 ── */
+  svg#tree{width:100%; height:auto; display:block;}
+  .edge{stroke:#d8cbb2; stroke-width:3; stroke-linecap:round;}
+  .node circle{fill:#fff; stroke:#c9bfae; stroke-width:3;}
+  .node text.val{font-size:20px; font-weight:800; fill:var(--ink);}
+  .node .tag{font-size:12px; font-weight:800;}
+  .node.reported circle{fill:#e6f4e7; stroke:var(--green);}
+  .node.answer circle{fill:var(--gold); stroke:#c98d00;}
+  .node.answer text.val{fill:#5c4300;}
+  .node.pruned{opacity:.45;}
+  .node.current circle{stroke:var(--orange); stroke-width:5;}
+  .pulse{animation:pulse 1s ease-in-out infinite;}
+  @keyframes pulse{0%,100%{stroke-width:5;} 50%{stroke-width:8;}}
+  .stamp{font-size:12px; font-weight:800; fill:var(--green);}
+  .stamp.ans{fill:#b07b00;}
+  .scissor{font-size:14px; fill:var(--red); font-weight:800;}
+  .legend{display:flex; gap:14px; flex-wrap:wrap; margin-top:8px; font-size:12.5px; color:#7a715f;}
+  .legend .dot{display:inline-block; width:12px; height:12px; border-radius:50%; margin-right:5px; vertical-align:-1px; border:2px solid;}
+  /* ── 记分牌 ── */
+  .scoreboard{background:var(--navy); color:#eaf2ff; border-color:#1a2436; text-align:center;}
+  .sb-label{font-size:13px; letter-spacing:4px; color:#9fb4d8; font-weight:700;}
+  .sb-num{font-size:74px; font-weight:900; line-height:1.05; color:#c8ff7a; text-shadow:0 3px 0 #16202f;}
+  .sb-num.zero{color:var(--gold);}
+  .sb-sub{font-size:12.5px; color:#9fb4d8;}
+  .sb-res{margin-top:10px; background:#16202f; border-radius:10px; padding:8px; font-weight:800; font-size:16px;}
+  .sb-res.done{color:var(--gold);}
+  /* ── 中序队伍 ── */
+  .queue-strip{display:flex; gap:8px; justify-content:center; flex-wrap:wrap;}
+  .slot{
+    min-width:58px; text-align:center; border:2px dashed #d8cbb2; border-radius:12px;
+    padding:6px 8px; background:#fffdf8;
+  }
+  .slot .ord{font-size:12px; color:#a09380; font-weight:800;}
+  .slot .who{font-size:19px; font-weight:900;}
+  .slot.reported{border:2px solid var(--green); background:#e6f4e7;}
+  .slot.answer{border:2px solid var(--gold); background:var(--gold); }
+  .slot.closed{opacity:.45; border-style:dotted;}
+  /* ── 解说 ── */
+  #narration{min-height:44px; font-size:14.5px; line-height:1.55;}
+  /* ── 控制 ── */
+  .controls .row{display:flex; gap:8px; flex-wrap:wrap; align-items:center;}
+  button.op{
+    border:none; border-radius:10px; padding:9px 14px; font-size:14px; font-weight:800; cursor:pointer;
+    background:#efe6d6; color:var(--ink);
+  }
+  button.op:hover{filter:brightness(.96);}
+  button.op.primary{background:var(--orange); color:#fff; box-shadow:0 3px 0 #d96f00;}
+  select{padding:8px; border-radius:8px; border:2px solid var(--line); font-weight:700; background:#fff;}
+  #progress{margin-top:8px; font-size:12.5px; color:#a09380; text-align:right;}
+  /* ── 代码 ── */
+  pre#code{
+    background:#2b2b3c; color:#e8e6ff; border-radius:12px; padding:14px 16px;
+    font-size:13.5px; line-height:1.75; overflow-x:auto; font-family:"SF Mono",Menlo,Consolas,monospace;
+  }
+  pre#code .ln{display:block; padding:0 8px; border-radius:6px;}
+  pre#code .ln.hot{background:#4a3f1f; outline:1px solid var(--gold);}
+  pre#code .cm{color:#8f8fb0;}
+  /* ── 小测验 ── */
+  details{border:2px solid var(--line); border-radius:10px; padding:10px 12px; margin-bottom:8px; background:#fffdf8;}
+  summary{font-weight:800; cursor:pointer; font-size:14px;}
+  details p{margin-top:8px; font-size:14px; line-height:1.6; color:#5c5648;}
+  footer{text-align:center; margin-top:22px; color:#a09380; font-size:13px;}
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <header class="hero">
+    <h1><span class="em">🎟️</span> 第 K 小 · 报号大厅</h1>
+    <p>BST 中序 = 从小到大排队。<b>报到第 k 个就是答案</b>；名额一满，全员回头（剪枝）。</p>
+    <div class="k-picker">
+      <span class="lbl">选择 k：</span>
+      <button class="kbtn" data-k="1">k = 1</button>
+      <button class="kbtn" data-k="2">k = 2</button>
+      <button class="kbtn" data-k="3">k = 3</button>
+      <button class="kbtn on" data-k="4">k = 4</button>
+    </div>
+  </header>
+
+  <div class="layout">
+    <section class="card">
+      <div class="card-title">🌳 树 & 报号现场（示例 1：root = [3,1,4,null,2]）</div>
+      <svg id="tree" viewBox="0 0 460 340"></svg>
+      <div class="legend">
+        <span><span class="dot" style="border-color:#c9bfae"></span>未访问</span>
+        <span><span class="dot" style="border-color:#fb8c00"></span>当前</span>
+        <span><span class="dot" style="border-color:#43a047;background:#e6f4e7"></span>已报号</span>
+        <span><span class="dot" style="border-color:#f6b800;background:#f6b800"></span>答案 👑</span>
+        <span><span class="dot" style="border-color:#b9b2a6;opacity:.45"></span>下班铃（剪枝）</span>
+      </div>
+    </section>
+
+    <aside class="side" style="display:grid; gap:14px;">
+      <div class="card scoreboard">
+        <div class="sb-label">剩 余 名 额</div>
+        <div class="sb-num" id="scoreNum">–</div>
+        <div class="sb-sub">报到一人减一个，减到 0 就是答案</div>
+        <div class="sb-res" id="resBox">答案：还没报到</div>
+      </div>
+
+      <div class="card">
+        <div class="card-title">📋 中序队伍（从小到大）</div>
+        <div class="queue-strip" id="queueStrip"></div>
+      </div>
+
+      <div class="card">
+        <div class="card-title">📣 现场解说</div>
+        <div id="narration">选好 k，按 <b>▶ 播放</b> 或 <b>下一步</b> 开始报号。</div>
+      </div>
+
+      <div class="card controls">
+        <div class="row">
+          <button class="op" id="btnReset">⏮ 重置</button>
+          <button class="op" id="btnPrev">◀ 上一步</button>
+          <button class="op primary" id="btnNext">下一步 ▶|</button>
+          <button class="op primary" id="btnPlay">▶ 播放</button>
+          <select id="speed">
+            <option value="1600">慢速</option>
+            <option value="1000" selected>中速</option>
+            <option value="550">快速</option>
+          </select>
+        </div>
+        <div id="progress">步骤 0 / 0</div>
+      </div>
+    </aside>
+  </div>
+
+  <section class="card" style="margin-top:14px;">
+    <div class="card-title">📜 同步代码（新手版）</div>
+    <pre id="code"></pre>
+  </section>
+
+  <section class="card" style="margin-top:14px;">
+    <div class="card-title">🎯 小测验</div>
+    <details>
+      <summary>① 若 k = 3，报号到哪个节点拿到答案？下班铃最先在谁身上响？</summary>
+      <p>中序队伍是 1、2、3、4：名额 3→2（1 号报号）→1（2 号报号）→0（<b>3 号报号，答案 = 3</b>）。随后进 3 的右子树 4：4 的左边是空、报到位一看名额为 0——<b>下班铃最先在 4 身上响</b>，随即回头。</p>
+    </details>
+    <details>
+      <summary>② 把代码里的 nonlocal 删掉，会发生什么？</summary>
+      <p><code>count -= 1</code> 是重新赋值，没有 <code>nonlocal</code> 时 Python 会把 count 当成 dfs 的局部变量——"先减后用"撞上"未定义"，当场 <code>UnboundLocalError</code>。老规矩：重新赋值才需要 nonlocal，只读不用。</p>
+    </details>
+  </section>
+
+  <footer>比喻沿用：中序队伍 · 记分牌 · 下班铃 ｜ 配套讲解见同文件夹《二叉搜索树中第K小的元素-讲解》</footer>
+</div>
+
+<script>
+/* ── 数据：示例 1 的树 ── */
+const NODES = {
+  3:{v:3, l:1, r:4,   x:230, y:52,  px:230, py:104},
+  1:{v:1, l:null,r:2, x:128, y:168, px:172, py:212},
+  4:{v:4, l:null,r:null, x:332, y:168, px:332, py:212},
+  2:{v:2, l:null,r:null, x:186, y:284, px:186, py:330},
+};
+const ROOT = 3;
+const INORDER = (()=>{ const a=[]; (function w(id){ if(id===null)return; w(NODES[id].l); a.push(id); w(NODES[id].r); })(ROOT); return a; })();
+const ORD_CN = ["①","②","③","④","⑤","⑥"];
+
+/* ── 代码行（同步高亮用）── */
+const CODE = [
+  'def kthSmallest(self, root, k):',
+  '    count = k            # 记分牌：剩余名额',
+  '    res = None           # 答案',
+  '    def dfs(node):',
+  '        nonlocal count, res',
+  '        if node is None:     # 刹车：空气不报号',
+  '            return',
+  '        dfs(node.left)       # 左：小的先报',
+  '        if count == 0:       # 下班铃：谁进门谁回头',
+  '            return',
+  '        count -= 1           # 报号',
+  '        if count == 0:       # 减到 0',
+  '            res = node.val   # 我就是答案 🎯',
+  '        dfs(node.right)      # 右：轮到大的',
+  '    dfs(root)',
+  '    return res',
+];
+/* 事件 → 代码行号（0 基） */
+const LINE_OF = { enter:7, null:5, report:10, answer:12, prune:8, end:15 };
+
+/* ── 模拟器：镜像新手版代码，吐出事件序列 ── */
+function simulate(k){
+  let count = k, res = null;
+  const steps = [];
+  const emit = (s)=>steps.push(s);
+  function dfs(id){
+    if(id === null){ emit({t:'null', count, res}); return; }
+    emit({t:'enter', node:id, count, res});
+    dfs(NODES[id].l);
+    if(count === 0){ emit({t:'prune', node:id, count, res}); return; }
+    count -= 1;
+    if(count === 0){ res = NODES[id].v; emit({t:'answer', node:id, count, res}); }
+    else emit({t:'report', node:id, count, res});
+    dfs(NODES[id].r);
+  }
+  dfs(ROOT);
+  emit({t:'end', count, res});
+  return steps;
+}
+
+/* ── 渲染 ── */
+const svg = document.getElementById('tree');
+function drawStatic(){
+  let edges = '', groups = '';
+  const E = [[3,1],[3,4],[1,2]];
+  for(const [a,b] of E){
+    edges += `<line class="edge" x1="${NODES[a].x}" y1="${NODES[a].y}" x2="${NODES[b].x}" y2="${NODES[b].y}"></line>`;
+  }
+  for(const id in NODES){
+    const n = NODES[id];
+    groups += `<g class="node" id="node${id}">
+      <circle cx="${n.x}" cy="${n.y}" r="27"></circle>
+      <text class="val" x="${n.x}" y="${n.y+7}" text-anchor="middle">${n.v}</text>
+      <text class="stamp" x="${n.x}" y="${n.y-34}" text-anchor="middle"></text>
+      <text class="scissor" x="${n.x+30}" y="${n.y-24}"></text>
+    </g>`;
+  }
+  svg.innerHTML = edges + groups;
+}
+function drawQueue(orderIdxMap, resNode, closedAfter){
+  const box = document.getElementById('queueStrip');
+  box.innerHTML = INORDER.map((id,i)=>{
+    const ord = ORD_CN[i], v = NODES[id].v;
+    let cls = 'slot', extra = '';
+    if(resNode !== null && String(id) === String(resNode)){ cls += ' answer'; }
+    else if(orderIdxMap.has(String(id))){ cls += ' reported'; }
+    else if(closedAfter){ cls += ' closed'; extra = ' ✂'; }
+    return `<div class="${cls}"><div class="ord">${ord}</div><div class="who">${v}${extra}</div></div>`;
+  }).join('');
+}
+function renderStep(i){
+  const st = state.steps[i];
+  /* 回放统计已报号节点（含答案） */
+  const orderIdx = new Map(); let resNode = null, answerAt = null, pruned = new Set();
+  for(let j=0; j<=i; j++){
+    const s = state.steps[j];
+    if(s.t==='report') orderIdx.set(String(s.node), orderIdx.size);
+    if(s.t==='answer'){ answerAt = s.node; resNode = String(s.node); }
+    if(s.t==='prune') pruned.add(String(s.node));
+  }
+  /* 节点样式 */
+  for(const id in NODES){
+    const g = document.getElementById('node'+id);
+    const sid = String(id);
+    const isAns = sid === resNode;
+    const reported = orderIdx.has(sid) || isAns;
+    g.setAttribute('class','node' + (reported?' reported':'') + (isAns?' answer':'') + (pruned.has(sid)?' pruned':'') + (st.t!=='null' && String(st.node)===sid && (st.t==='enter'||st.t==='report'||st.t==='answer')?' current pulse':''));
+    g.querySelector('.stamp').textContent = isAns?'👑':'' ;
+    g.querySelector('.scissor').textContent = pruned.has(sid)?'✂':'';
+  }
+  /* 记分牌 */
+  const num = document.getElementById('scoreNum');
+  num.textContent = st.count;
+  num.classList.toggle('zero', st.count===0);
+  const rb = document.getElementById('resBox');
+  if(st.res !== null){ rb.textContent = `答案：第 k 小 = ${st.res} 👑`; rb.classList.add('done'); }
+  else { rb.textContent = '答案：还没报到'; rb.classList.remove('done'); }
+  /* 队伍 */
+  drawQueue(orderIdx, resNode, st.t==='prune'||st.t==='end'||answerAt!==null);
+  /* 解说 */
+  const n = document.getElementById('narration');
+  const V = st.node!==undefined ? NODES[st.node].v : '';
+  const msg = {
+    enter:`🚪 进 <b>${V}</b> 号节点——按中序，先看它左边有没有更小的`,
+    null:`🛑 空气节点：刹车返回，不报号`,
+    report:`🎫 <b>${V}</b> 报号！名额 −1，还剩 <b>${st.count}</b> 个`,
+    answer:`🎯 <b>${V}</b> 报号，名额归零——第 k 小就是它：<b>${st.res}</b> 👑`,
+    prune:`✂️ 下班铃！<b>${V}</b> 一看记分牌（0）立刻回头，右边不用走了`,
+    end:`🏁 队伍收工：第 k 小 = <b>${st.res}</b>`,
+  }[st.t];
+  n.innerHTML = msg;
+  /* 代码高亮 */
+  document.querySelectorAll('#code .ln').forEach(el=>el.classList.remove('hot'));
+  const ln = document.getElementById('cl'+LINE_OF[st.t]);
+  if(ln) ln.classList.add('hot');
+  document.getElementById('progress').textContent = `步骤 ${i} / ${state.steps.length-1}`;
+}
+
+/* ── 状态与控制 ── */
+const state = {k:4, steps:[], i:0, timer:null};
+function rebuild(){
+  state.steps = simulate(state.k);
+  state.i = 0;
+  if(state.timer){clearInterval(state.timer); state.timer=null; document.getElementById('btnPlay').textContent='▶ 播放';}
+  renderStep(0);
+}
+function stepTo(i){
+  state.i = Math.max(0, Math.min(state.steps.length-1, i));
+  if(state.timer){clearInterval(state.timer); state.timer=null; document.getElementById('btnPlay').textContent='▶ 播放';}
+  renderStep(state.i);
+}
+document.getElementById('btnNext').onclick = ()=>stepTo(state.i+1);
+document.getElementById('btnPrev').onclick = ()=>stepTo(state.i-1);
+document.getElementById('btnReset').onclick = ()=>rebuild();
+document.getElementById('btnPlay').onclick = function(){
+  if(state.timer){ clearInterval(state.timer); state.timer=null; this.textContent='▶ 播放'; return; }
+  if(state.i >= state.steps.length-1) state.i = 0;
+  this.textContent = '⏸ 暂停';
+  state.timer = setInterval(()=>{
+    if(state.i >= state.steps.length-1){ clearInterval(state.timer); state.timer=null; document.getElementById('btnPlay').textContent='▶ 播放'; return; }
+    state.i++; renderStep(state.i);
+  }, parseInt(document.getElementById('speed').value,10));
+};
+document.getElementById('speed').onchange = ()=>{
+  if(state.timer){ clearInterval(state.timer); state.timer=null; document.getElementById('btnPlay').textContent='▶ 播放';
+    document.getElementById('btnPlay').click(); }
+};
+document.querySelectorAll('.kbtn').forEach(b=>{
+  b.onclick = ()=>{
+    document.querySelectorAll('.kbtn').forEach(x=>x.classList.remove('on'));
+    b.classList.add('on');
+    state.k = parseInt(b.dataset.k,10);
+    rebuild();
+  };
+});
+
+/* ── 初始化 ── */
+drawStatic();
+document.getElementById('code').innerHTML = CODE.map((c,i)=>
+  `<span class="ln" id="cl${i}">${c.replace(/(#.*$)/,'<span class="cm">$1</span>')}</span>`).join('');
+rebuild();
+</script>
+</body>
+</html>

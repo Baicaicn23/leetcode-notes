@@ -37,7 +37,7 @@
 | --- | --- | --- | --- | --- |
 | 108 | [将有序数组转换为二叉搜索树](https://leetcode.cn/problems/convert-sorted-array-to-binary-search-tree/) | ![简单](https://img.shields.io/badge/简单-green?style=flat-square) | 分治：中间当根 | [📝 讲解](2026-09-30/01-将有序数组转换为二叉搜索树/将有序数组转换为二叉搜索树-讲解.md) |
 | 98 | [验证二叉搜索树](https://leetcode.cn/problems/validate-binary-search-tree/) | ![中等](https://img.shields.io/badge/中等-orange?style=flat-square) | 前序上下界 / 中序递增 | [📝 讲解](2026-09-30/02-验证二叉搜索树/验证二叉搜索树-讲解.md) |
-| 230 | [二叉搜索树中第K小的元素](https://leetcode.cn/problems/kth-smallest-element-in-a-bst/) | ![中等](https://img.shields.io/badge/中等-orange?style=flat-square) | 中序报数 + 剪枝 | [📝 讲解](2026-09-30/03-二叉搜索树中第K小的元素/二叉搜索树中第K小的元素-讲解.md) |
+| 230 | [二叉搜索树中第K小的元素](https://leetcode.cn/problems/kth-smallest-element-in-a-bst/) | ![中等](https://img.shields.io/badge/中等-orange?style=flat-square) | 中序报数 + 剪枝 🎬 | [📝 讲解](2026-09-30/03-二叉搜索树中第K小的元素/二叉搜索树中第K小的元素-讲解.md) |
 
 > 🎬 = 配套互动演示页面（HTML，浏览器直接打开可播放动画）
 
