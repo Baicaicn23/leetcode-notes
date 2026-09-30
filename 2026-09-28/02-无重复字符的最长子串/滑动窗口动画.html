@@ -1,0 +1,463 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>滑动窗口 · 贪吃蛇掌机教学</title>
+<style>
+  :root {
+    --desk: #121711;          /* 深色书桌：夜间自习场景 */
+    --raise: #1a2118;         /* 抬升一层的面板 */
+    --line: #2c372a;          /* 分隔与描边 */
+    --ink: #e8ecdc;           /* 主文字 */
+    --ink-2: #a9b79c;         /* 次文字（带绿调，不用纯灰） */
+    --accent: #c6e163;        /* LCD 荧光绿：强调与焦点 */
+    --lcd: #9bbc0f;           /* 经典掌机屏幕底色 */
+    --lcd-soft: #8bac0f;
+    --lcd-ink: #0f380f;       /* 屏幕上的像素墨色 */
+    --lcd-mid: #306230;
+    --signal: #e0705a;        /* 过期 / 禁止，唯一暖色 */
+    --radius: 14px;
+  }
+  * { box-sizing: border-box; }
+  html { scrollbar-color: #3a4636 var(--desk); }
+  body {
+    margin: 0; padding: 32px clamp(16px, 4vw, 56px) 48px;
+    background: var(--desk);
+    color: var(--ink);
+    font-family: "PingFang SC", "Hiragino Sans GB", "Microsoft YaHei", system-ui, sans-serif;
+    font-size: 16px; line-height: 1.75;
+  }
+  ::selection { background: var(--accent); color: var(--lcd-ink); }
+  :focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; border-radius: 6px; }
+  ::-webkit-scrollbar { width: 10px; height: 10px; }
+  ::-webkit-scrollbar-thumb { background: #3a4636; border-radius: 8px; border: 2px solid var(--desk); }
+
+  header { max-width: 1120px; margin: 0 auto 30px; }
+  h1 {
+    font-size: clamp(26px, 3.6vw, 38px); line-height: 1.25;
+    letter-spacing: -0.02em; margin: 0 0 10px; font-weight: 800;
+  }
+  h1 .lcd { color: var(--accent); }
+  .sub { color: var(--ink-2); font-size: 15px; max-width: 72ch; }
+
+  .stage {
+    max-width: 1120px; margin: 0 auto;
+    display: grid; grid-template-columns: 470px minmax(0, 1fr);
+    gap: 30px; align-items: start;
+  }
+  @media (max-width: 980px) { .stage { grid-template-columns: 1fr; } }
+
+  /* ── 掌机机身 ─────────────────────────────── */
+  .console {
+    background: linear-gradient(180deg, #20281f, #181f17);
+    border-radius: 26px;
+    padding: 22px 22px 18px;
+    box-shadow: 0 28px 60px -18px rgba(0, 0, 0, .65);
+  }
+  .brandrow {
+    display: flex; align-items: baseline; justify-content: space-between;
+    margin-bottom: 14px;
+  }
+  .brand { font-size: 12px; font-weight: 700; letter-spacing: .22em; color: var(--ink-2); }
+  .model { font-size: 11px; color: #97a88b; letter-spacing: .12em; }
+
+  .screen {
+    background: var(--lcd);
+    border-radius: 12px;
+    border: 1px solid #6d8612;
+    box-shadow: inset 0 2px 10px rgba(0, 0, 0, .3);
+    padding: 16px 14px 12px;
+  }
+  .strip { display: flex; gap: 7px; justify-content: center; }
+  .cellwrap { display: flex; flex-direction: column; align-items: center; gap: 5px; min-width: 0; flex: 1; }
+  .cell {
+    width: 100%; aspect-ratio: 1; border-radius: 8px;
+    display: flex; align-items: center; justify-content: center;
+    font-size: clamp(18px, 2.4vw, 26px); font-weight: 800;
+    color: rgba(15, 56, 15, .38);
+    background: rgba(15, 56, 15, .07);
+    border: 2px solid transparent;
+    transition: background-color .15s ease-out, color .15s ease-out, border-color .15s ease-out;
+    position: relative;
+  }
+  .cell.body { background: var(--lcd-ink); color: var(--lcd); border-color: var(--lcd-ink); }
+  .cell.head { box-shadow: inset 0 0 0 3px var(--lcd), inset 0 0 0 5px var(--lcd-ink); }
+  .cell.bite::after {
+    content: ""; position: absolute; inset: 0; border-radius: 8px;
+    background: var(--lcd); opacity: .9;
+    animation: bite .3s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+  }
+  @keyframes bite { from { clip-path: inset(0 100% 0 0); opacity: .95; } to { clip-path: inset(0 0 0 0); opacity: 0; } }
+  .cell.expelled { animation: expel .45s ease-out; }
+  @keyframes expel { 0% { background: rgba(224, 112, 90, .55); } 100% { background: rgba(15, 56, 15, .07); } }
+  .idx { font-size: 11px; color: rgba(15, 56, 15, .55); font-variant-numeric: tabular-nums; }
+  .ptr { font-size: 12px; font-weight: 700; height: 17px; font-variant-numeric: tabular-nums; }
+  .ptr.tail { color: #274d27; }
+  .ptr.headp { color: #7a2e1e; }
+
+  .lcdnote { margin-top: 12px; }
+  .lcdnote-label {
+    font-size: 11px; font-weight: 800; letter-spacing: .18em;
+    color: rgba(15, 56, 15, .6); margin-bottom: 6px;
+  }
+  .dic { display: flex; flex-wrap: wrap; gap: 6px; min-height: 30px; align-items: center; }
+  .dic-item {
+    font-family: ui-monospace, "SF Mono", Menlo, monospace;
+    font-variant-numeric: tabular-nums;
+    font-size: 14px; font-weight: 700;
+    padding: 3px 9px; border-radius: 6px;
+    background: rgba(15, 56, 15, .1); color: var(--lcd-ink);
+    border: 1.5px solid rgba(15, 56, 15, .35);
+  }
+  .dic-item.fresh-now { border-color: var(--lcd-ink); }
+  .dic-item.stale { color: var(--lcd-mid); border-color: rgba(48, 98, 48, .4); text-decoration: line-through; }
+  .dic-item.stale .stale-mark {
+    text-decoration: none; display: inline-block; margin-left: 5px;
+    font-size: 10px; font-weight: 800; color: var(--lcd-ink);
+    border: 1.5px solid var(--lcd-ink); border-radius: 4px; padding: 0 4px;
+    transform: rotate(-6deg);
+  }
+  .dic-item.stale.stamp .stale-mark { animation: stamp .32s cubic-bezier(0.16, 1, 0.3, 1); }
+  @keyframes stamp { 0% { transform: scale(2.1) rotate(-14deg); opacity: 0; } 100% { transform: scale(1) rotate(-6deg); opacity: 1; } }
+
+  /* HUD 读数：印在机身上的丝印字 */
+  .hud { display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px; margin-top: 16px; }
+  .hud .slot { text-align: center; }
+  .hud .k { font-size: 10.5px; letter-spacing: .16em; color: #97a88b; font-weight: 700; }
+  .hud .v {
+    font-family: ui-monospace, "SF Mono", Menlo, monospace;
+    font-variant-numeric: tabular-nums;
+    font-size: 21px; font-weight: 800; color: var(--accent); line-height: 1.3;
+  }
+
+  .track { height: 6px; border-radius: 3px; background: #0d120d; margin: 16px 0 6px; overflow: hidden; }
+  .track i { display: block; height: 100%; background: var(--accent); border-radius: 3px; transform-origin: 0 50%; transition: transform .2s ease-out; }
+  .counter {
+    display: flex; justify-content: space-between; align-items: center;
+    font-size: 12.5px; color: var(--ink-2); font-variant-numeric: tabular-nums;
+  }
+
+  /* 按键区 */
+  .keys { display: flex; gap: 12px; margin-top: 14px; align-items: stretch; }
+  .keywrap { flex: 1; display: flex; flex-direction: column; align-items: center; gap: 5px; }
+  .key {
+    width: 100%; height: 52px; border-radius: 14px; cursor: pointer;
+    display: flex; align-items: center; justify-content: center; gap: 7px;
+    background: #293226; border: 1px solid #3b4837; color: var(--ink);
+    box-shadow: 0 5px 12px -4px rgba(0, 0, 0, .55);
+    transition: transform .08s ease-out, box-shadow .08s ease-out, background-color .12s ease-out;
+    font: inherit; font-size: 14.5px; font-weight: 700;
+  }
+  .key:hover { background: #303b2c; }
+  .key:active { transform: translateY(2px); box-shadow: 0 2px 6px -3px rgba(0, 0, 0, .5); }
+  .key.primary { background: #334026; border-color: #4a5c33; color: var(--accent); }
+  .key.primary:hover { background: #3b4a2b; }
+  .key:disabled { opacity: .38; cursor: not-allowed; transform: none; }
+  .key svg { width: 17px; height: 17px; flex: none; }
+  .keylabel { font-size: 12px; color: var(--ink-2); font-weight: 600; }
+
+  .choose { display: flex; align-items: center; gap: 10px; margin-top: 16px; }
+  .choose label { font-size: 12.5px; color: var(--ink-2); font-weight: 600; white-space: nowrap; }
+  .choose select {
+    flex: 1; font: inherit; font-size: 14px; color: var(--ink);
+    background: #232b21; border: 1px solid var(--line); border-radius: 10px;
+    padding: 8px 10px;
+  }
+
+  /* ── 右栏：解说 + 代码 ─────────────────────── */
+  .side { display: flex; flex-direction: column; gap: 26px; min-width: 0; }
+  .narrate {
+    background: var(--raise); border: 1px solid var(--line); border-radius: var(--radius);
+    padding: 22px 24px;
+  }
+  .narrate h2 {
+    margin: 0 0 14px; font-size: 13px; letter-spacing: .18em;
+    color: var(--ink-2); font-weight: 800;
+    display: flex; align-items: center; gap: 8px;
+  }
+  .narrate h2 svg { width: 16px; height: 16px; color: var(--accent); }
+  #bubble { font-size: 17px; line-height: 1.95; min-height: 96px; margin: 0; }
+
+  .legend { display: flex; flex-wrap: wrap; gap: 8px 18px; margin-top: 18px; padding-top: 16px; border-top: 1px solid var(--line); }
+  .legend span { display: inline-flex; align-items: center; gap: 7px; font-size: 12.5px; color: var(--ink-2); }
+  .sw { width: 13px; height: 13px; border-radius: 4px; display: inline-block; flex: none; }
+  .sw.body { background: var(--lcd-ink); border: 1.5px solid var(--lcd-soft); }
+  .sw.head { background: var(--lcd-ink); border: 1.5px solid var(--lcd); box-shadow: inset 0 0 0 2px var(--lcd-ink); }
+  .sw.dimsw { background: rgba(155, 188, 15, .12); }
+  .sw.stalesw { background: transparent; border: 1.5px solid #4a5a46; }
+
+  .codepanel { background: #0d110c; border: 1px solid var(--line); border-radius: var(--radius); overflow: hidden; }
+  .codebar {
+    display: flex; align-items: center; gap: 8px;
+    padding: 10px 16px; border-bottom: 1px solid var(--line);
+    font-size: 12.5px; color: var(--ink-2);
+  }
+  .codebar svg { width: 14px; height: 14px; color: var(--accent); }
+  pre.code {
+    margin: 0; padding: 14px 8px 16px; overflow-x: auto;
+    font-family: ui-monospace, "SF Mono", Menlo, Consolas, monospace;
+    font-size: 13.5px; line-height: 2.05;
+  }
+  .cline { display: block; padding: 0 14px; white-space: pre; }
+  .cline.hl { background: rgba(198, 225, 99, .13); color: #f2f6e2; }
+  .cline.hl .cm { color: #c9d3a8; }
+  .cm { color: #5f6f57; }
+
+  footer { max-width: 1120px; margin: 26px auto 0; color: #97a88b; font-size: 13px; text-align: center; }
+  footer kbd {
+    font-family: ui-monospace, Menlo, monospace; font-size: 11.5px;
+    border: 1px solid var(--line); border-bottom-width: 2px; border-radius: 5px;
+    padding: 1px 6px; color: var(--ink-2);
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    .cell, .cell.bite::after, .dic-item.stale.stamp .stale-mark, .cell.expelled { animation: none !important; transition: none !important; }
+    .track i, .key { transition: none !important; }
+  }
+</style>
+</head>
+<body>
+
+<header>
+  <h1>滑动窗口，<span class="lcd">一步一步</span>爬给你看</h1>
+  <p class="sub">第 3 题《无重复字符的最长子串》的核心三行代码，装进了这台掌机。绿色格子是蛇身，也就是永远不含重复字符的那一段；先玩「abba 陷阱局」，再玩正常局。</p>
+</header>
+
+<div class="stage">
+  <section class="console" aria-label="滑动窗口演示掌机">
+    <div class="brandrow">
+      <span class="brand">SNAKE·WINDOW</span>
+      <span class="model">SW-3 EDU</span>
+    </div>
+
+    <div class="screen">
+      <div class="strip" id="strip" aria-label="字符串格子"></div>
+      <div style="text-align:center; margin-top:10px;">
+        <span class="dic-item" id="lenPill" style="visibility:hidden; border-color:var(--lcd-ink);"></span>
+      </div>
+      <div class="lcdnote">
+        <div class="lcdnote-label">登记本 DIC</div>
+        <div class="dic" id="dicRow"></div>
+      </div>
+    </div>
+
+    <div class="hud" aria-label="当前状态">
+      <div class="slot"><div class="k">尾巴 I</div><div class="v" id="hudI">-1</div></div>
+      <div class="slot"><div class="k">蛇头 J</div><div class="v" id="hudJ">-1</div></div>
+      <div class="slot"><div class="k">蛇身 J−I</div><div class="v" id="hudLen">0</div></div>
+      <div class="slot"><div class="k">纪录 RES</div><div class="v" id="hudRes">0</div></div>
+    </div>
+
+    <div class="track"><i id="trackFill" style="width:0%"></i></div>
+    <div class="counter"><span id="counterText">第 1 / 1 帧</span><span id="caseTag">abba · 陷阱局</span></div>
+
+    <div class="keys">
+      <div class="keywrap">
+        <button class="key" id="btnPrev" aria-label="上一帧">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M15 18l-6-6 6-6"/></svg>
+        </button>
+        <span class="keylabel">上一步</span>
+      </div>
+      <div class="keywrap">
+        <button class="key primary" id="btnNext" aria-label="下一帧">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M9 18l6-6-6-6"/></svg>
+        </button>
+        <span class="keylabel">下一步</span>
+      </div>
+      <div class="keywrap">
+        <button class="key" id="btnPlay" aria-label="自动播放">
+          <svg id="icoPlay" viewBox="0 0 24 24" fill="currentColor"><path d="M8 5.5v13l11-6.5z"/></svg>
+          <svg id="icoPause" viewBox="0 0 24 24" fill="currentColor" style="display:none"><rect x="6" y="5" width="4" height="14" rx="1"/><rect x="14" y="5" width="4" height="14" rx="1"/></svg>
+        </button>
+        <span class="keylabel" id="playLabel">播放</span>
+      </div>
+      <div class="keywrap">
+        <button class="key" id="btnReset" aria-label="重置到第一帧">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M3 12a9 9 0 1 0 3-6.7"/><path d="M3 4v5h5"/></svg>
+        </button>
+        <span class="keylabel">重置</span>
+      </div>
+    </div>
+
+    <div class="choose">
+      <label for="strSel">练习字符串</label>
+      <select id="strSel">
+        <option value="abba" selected>abba（陷阱局，先看这个）</option>
+        <option value="abcabcbb">abcabcbb（正常局）</option>
+      </select>
+    </div>
+  </section>
+
+  <div class="side">
+    <section class="narrate">
+      <h2>
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 11.5a8.4 8.4 0 0 1-9 8.4 9 9 0 0 1-3.8-.8L3 21l1.9-4.2A8.4 8.4 0 1 1 21 11.5z"/></svg>
+        逐步解说
+      </h2>
+      <p id="bubble" aria-live="polite"></p>
+      <div class="legend">
+        <span><i class="sw body"></i>蛇身（无重复的一段）</span>
+        <span><i class="sw head"></i>蛇头 j 正在吃</span>
+        <span><i class="sw dimsw"></i>还没爬到</span>
+        <span><i class="sw stalesw"></i>过期记录（尾巴绝不倒退）</span>
+      </div>
+    </section>
+
+    <section class="codepanel">
+      <div class="codebar">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M8 9l-4 3 4 3M16 9l4 3-4 3M13 5l-2 14"/></svg>
+        threeSum.py —— 核心三行，点亮的就是当前在跑的
+      </div>
+      <pre class="code" id="codeBox"><span class="cline" id="ln-for">for j in range(len(s)):        <span class="cm"># 蛇头 j 一个一个吃字符</span></span><span class="cline" id="ln-l1">    if s[j] in dic:            <span class="cm"># ① 查登记本：出现过吗？</span></span><span class="cline" id="ln-l1b">        i = max(dic[s[j]], i)  <span class="cm"># ① 尾巴跳位（max 兜底，绝不倒退）</span></span><span class="cline" id="ln-l2">    dic[s[j]] = j              <span class="cm"># ② 登记：写入最新位置</span></span><span class="cline" id="ln-l3">    res = max(res, j - i)      <span class="cm"># ③ 量长度，更新最长纪录</span></span></pre>
+    </section>
+  </div>
+</div>
+
+<footer>键盘 <kbd>←</kbd> <kbd>→</kbd> 也能翻帧 · 绿色格子 = 蛇身 · 登记本里划线灰条 = 过期记录</footer>
+
+<script>
+function buildFrames(s) {
+  const F = [];
+  let dic = {}, i = -1, res = 0;
+  F.push({line:null, j:-1, i:i, dic:{}, res:res, fresh:null, ate:false, expelledIdx:null,
+    text:'开局：登记本是空的，尾巴 i = −1（蛇身左边外面一格），最长纪录 res = 0。按「下一步」让蛇头开始吃字符！'});
+  for (let j = 0; j < s.length; j++) {
+    const c = s[j];
+    let expelled = null;
+    if (c in dic) {
+      const old = dic[c], ni = Math.max(old, i);
+      F.push({line:'l1', j:j, i:i, dic:Object.assign({},dic), res:res, fresh:null, ate:false, expelledIdx:null,
+        text: old > i
+          ? '蛇头 j=' + j + ' 吃到 “' + c + '”。查登记本：' + c + ' 上次出现在位置 ' + old + '，在尾巴 i=' + i + ' 右边 → 不是过期记录，尾巴要跳到 ' + old + '，把旧的那个 “' + c + '” 吐出去。'
+          : '蛇头 j=' + j + ' 吃到 “' + c + '”。查登记本：' + c + ' 上次出现在位置 ' + old + '，但尾巴 i=' + i + ' 早就走到它右边了 → 过期记录！max(' + old + ', ' + i + ') = ' + ni + '，听大的，尾巴不动。这就是 max() 存在的意义！'});
+      if (old > i) expelled = old;
+      i = ni;
+      F.push({line:'l1b', j:j, i:i, dic:Object.assign({},dic), res:res, fresh:null, ate:false, expelledIdx:expelled,
+        text: old > i
+          ? '✅ 尾巴跳到了 i=' + i + '：位置 ' + old + ' 的旧 “' + c + '” 被甩出蛇身，蛇身恢复“没有重复”。'
+          : '✅ 确认：尾巴保持在 i=' + i + '，绝不倒退。过期记录捣不了乱。'});
+    } else {
+      F.push({line:'l1', j:j, i:i, dic:Object.assign({},dic), res:res, fresh:null, ate:false, expelledIdx:null,
+        text:'蛇头 j=' + j + ' 吃到 “' + c + '”。查登记本：没有 “' + c + '” 的记录 → 尾巴不用动，还是 i=' + i + '。'});
+    }
+    dic[c] = j;
+    F.push({line:'l2', j:j, i:i, dic:Object.assign({},dic), res:res, fresh:c, ate:true, expelledIdx:null,
+      text:'② 登记：把 “' + c + '” 的最新位置写成 ' + j + '（旧记录被覆盖，从这一刻起旧记录“过期”了）。'});
+    const len = j - i, nres = Math.max(res, len);
+    F.push({line:'l3', j:j, i:i, dic:Object.assign({},dic), res:nres, fresh:null, ate:false, expelledIdx:null,
+      text:'③ 量长度：蛇身 = 位置 ' + (i+1) + ' ~ ' + j + '，长度 j − i = ' + j + ' − ' + i + ' = ' + len + '。和纪录比：max(' + res + ', ' + len + ') = ' + nres + (nres > res ? '，破纪录了！' : '，纪录没变。')});
+    res = nres;
+  }
+  F.push({line:null, j:s.length-1, i:i, dic:Object.assign({},dic), res:res, fresh:null, ate:false, expelledIdx:null,
+    text:'爬完了！最长纪录 res = ' + res + '，这就是这道题的答案。换一个字符串再玩一遍，或回到讲解文档把代码重读一遍。'});
+  return F;
+}
+
+function staleSet(f) {
+  const out = {};
+  for (const ch of Object.keys(f.dic)) if (f.dic[ch] <= f.i) out[ch] = true;
+  return out;
+}
+
+let frames = [], cur = 0, timer = null;
+
+function render(prev) {
+  const f = frames[cur], s = document.getElementById('strSel').value;
+  const p = (prev !== undefined) ? prev : frames[cur - 1];
+  // 字符格
+  const strip = document.getElementById('strip');
+  strip.innerHTML = '';
+  for (let k = 0; k < s.length; k++) {
+    const w = document.createElement('div'); w.className = 'cellwrap';
+    const c = document.createElement('div'); c.className = 'cell'; c.textContent = s[k];
+    if (k <= f.j && k > f.i) c.classList.add('body');
+    if (k === f.j && f.j >= 0) { c.classList.add('head'); if (f.ate && p && f.j > p.j) c.classList.add('bite'); }
+    if (p && f.expelledIdx !== null && f.expelledIdx === k) c.classList.add('expelled');
+    const idx = document.createElement('div'); idx.className = 'idx'; idx.textContent = k;
+    const ptr = document.createElement('div'); ptr.className = 'ptr';
+    if (k === f.i && f.i >= 0) { ptr.classList.add('tail'); ptr.textContent = '▲尾 ' + f.i; }
+    else if (k === f.j && f.j >= 0) { ptr.classList.add('headp'); ptr.textContent = '▲头 ' + f.j; }
+    w.appendChild(c); w.appendChild(idx); w.appendChild(ptr);
+    strip.appendChild(w);
+  }
+  const pill = document.getElementById('lenPill');
+  if (f.j >= 0) {
+    pill.style.visibility = 'visible';
+    pill.textContent = '蛇身 = 位置 ' + (f.i + 1) + ' ~ ' + f.j + '（j − i = ' + (f.j - f.i) + '）';
+  } else { pill.style.visibility = 'hidden'; }
+  // 登记本
+  const dicRow = document.getElementById('dicRow');
+  dicRow.innerHTML = '';
+  const nowStale = staleSet(f), wasStale = p ? staleSet(p) : {};
+  const entries = Object.keys(f.dic);
+  if (entries.length === 0) dicRow.innerHTML = '<span style="color:rgba(15,56,15,.5); font-size:13px;">（空的，还没有字符登记过）</span>';
+  for (const ch of entries) {
+    const pos = f.dic[ch];
+    const el = document.createElement('span');
+    el.className = 'dic-item';
+    el.textContent = ch + ' → ' + pos;
+    if (nowStale[ch]) {
+      el.classList.add('stale');
+      const mark = document.createElement('span');
+      mark.className = 'stale-mark'; mark.textContent = '过期';
+      el.appendChild(mark);
+      if (!wasStale[ch]) el.classList.add('stamp');
+    } else if (f.fresh === ch) {
+      el.classList.add('fresh-now');
+    }
+    dicRow.appendChild(el);
+  }
+  // HUD
+  document.getElementById('hudI').textContent = f.i;
+  document.getElementById('hudJ').textContent = f.j;
+  document.getElementById('hudLen').textContent = f.j >= 0 ? (f.j - f.i) : 0;
+  document.getElementById('hudRes').textContent = f.res;
+  // 进度
+  document.getElementById('trackFill').style.transform = 'scaleX(' + (cur / (frames.length - 1)) + ')';
+  document.getElementById('counterText').textContent = '第 ' + (cur + 1) + ' / ' + frames.length + ' 帧';
+  document.getElementById('caseTag').textContent = s + (s === 'abba' ? ' · 陷阱局' : ' · 正常局');
+  // 按键状态
+  document.getElementById('btnPrev').disabled = cur === 0;
+  document.getElementById('btnNext').disabled = cur === frames.length - 1;
+  // 代码高亮
+  document.querySelectorAll('.cline').forEach(el => el.classList.remove('hl'));
+  if (f.line) document.getElementById('ln-' + f.line).classList.add('hl');
+  // 解说
+  document.getElementById('bubble').textContent = f.text;
+}
+
+function rebuild() {
+  stopPlay();
+  frames = buildFrames(document.getElementById('strSel').value);
+  cur = 0; render();
+}
+function stopPlay() {
+  if (timer) { clearInterval(timer); timer = null;
+    document.getElementById('icoPlay').style.display = ''; document.getElementById('icoPause').style.display = 'none';
+    document.getElementById('playLabel').textContent = '播放';
+  }
+}
+
+document.getElementById('btnNext').onclick = () => { stopPlay(); if (cur < frames.length - 1) { cur++; render(); } };
+document.getElementById('btnPrev').onclick = () => { stopPlay(); if (cur > 0) { cur--; render(); } };
+document.getElementById('btnReset').onclick = () => rebuild();
+document.getElementById('strSel').onchange = () => rebuild();
+document.getElementById('btnPlay').onclick = function() {
+  if (timer) { stopPlay(); return; }
+  document.getElementById('icoPlay').style.display = 'none';
+  document.getElementById('icoPause').style.display = '';
+  document.getElementById('playLabel').textContent = '暂停';
+  timer = setInterval(() => {
+    if (cur < frames.length - 1) { cur++; render(); } else stopPlay();
+  }, 1700);
+};
+document.addEventListener('keydown', e => {
+  if (e.key === 'ArrowRight') document.getElementById('btnNext').click();
+  if (e.key === 'ArrowLeft') document.getElementById('btnPrev').click();
+});
+
+rebuild();
+</script>
+</body>
+</html>

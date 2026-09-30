@@ -1,0 +1,509 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>对称二叉树 · 镜子教室</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Baloo+2:wght@500;700;800&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --cream: #FFFBEB; --card: #FFFFFF; --ink: #0F172A; --muted: #475569;
+    --red: #DC2626; --red-deep: #B91C1C; --amber: #D97706; --amber-soft: #FEF3C7;
+    --green: #15803D; --green-soft: #DCFCE7; --red-soft: #FEE2E2;
+    --border: #F0E6C8; --ring: #DC2626;
+    --disp: "Baloo 2", "PingFang SC", "Hiragino Sans GB", "Microsoft YaHei", sans-serif;
+    --body: "PingFang SC", "Hiragino Sans GB", "Microsoft YaHei", system-ui, sans-serif;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0; padding: 0 20px 56px; background: var(--cream); color: var(--ink);
+    font-family: var(--body); font-size: 16.5px; line-height: 1.8;
+  }
+  ::selection { background: var(--amber); color: #fff; }
+  :focus-visible { outline: 3px solid var(--amber); outline-offset: 2px; border-radius: 8px; }
+  ::-webkit-scrollbar { width: 10px; }
+  ::-webkit-scrollbar-thumb { background: #e6d9a8; border-radius: 8px; }
+  .wrap { max-width: 1020px; margin: 0 auto; }
+
+  /* ── Hero ── */
+  header { padding: 52px 0 34px; text-align: center; position: relative; }
+  .deco { position: absolute; top: 30px; opacity: .9; }
+  .deco.l { left: 4%; } .deco.r { right: 4%; transform: scaleX(-1); }
+  h1 {
+    font-family: var(--disp); font-size: clamp(34px, 5.4vw, 54px);
+    line-height: 1.15; margin: 10px 0 12px; font-weight: 800; letter-spacing: -0.01em;
+  }
+  h1 .mir { color: var(--red); }
+  .kicker {
+    display: inline-flex; align-items: center; gap: 8px;
+    background: var(--ink); color: var(--cream); border-radius: 999px;
+    padding: 5px 18px; font-size: 14px; font-weight: 700; letter-spacing: .08em;
+  }
+  .sub { color: var(--muted); max-width: 62ch; margin: 0 auto; font-size: 17px; }
+  .sub b { color: var(--red-deep); }
+
+  /* ── 区块通用 ── */
+  section { margin-top: 46px; }
+  h2 {
+    font-family: var(--disp); font-size: 26px; margin: 0 0 18px;
+    display: flex; align-items: center; gap: 10px; font-weight: 800;
+  }
+  h2 .no {
+    width: 40px; height: 40px; border-radius: 12px; background: var(--ink); color: var(--cream);
+    display: inline-flex; align-items: center; justify-content: center;
+    font-size: 18px; flex: none;
+  }
+  .card { background: var(--card); border: 2px solid var(--border); border-radius: 20px; padding: 22px 24px; }
+
+  /* ── 镜子实验室 ── */
+  .controls { display: flex; flex-wrap: wrap; gap: 10px; align-items: center; margin-bottom: 14px; }
+  .controls select {
+    font: inherit; font-weight: 700; font-size: 15px; padding: 9px 12px;
+    border-radius: 12px; border: 2px solid var(--border); background: #fff; color: var(--ink);
+  }
+  button.btn {
+    font: inherit; font-weight: 700; font-size: 15px; cursor: pointer;
+    display: inline-flex; align-items: center; gap: 7px; justify-content: center;
+    min-height: 44px; padding: 8px 18px; border-radius: 12px;
+    border: 2px solid var(--ink); background: #fff; color: var(--ink);
+    transition: transform .15s ease-out, background-color .2s ease-out, color .2s ease-out;
+  }
+  button.btn:hover { background: var(--ink); color: var(--cream); }
+  button.btn:active { transform: translateY(2px); }
+  button.btn.go { background: var(--red); border-color: var(--red); color: #fff; }
+  button.btn.go:hover { background: var(--red-deep); }
+  button.btn:disabled { opacity: .35; cursor: not-allowed; }
+  button.btn svg { width: 16px; height: 16px; }
+  .counter { margin-left: auto; font-weight: 800; font-variant-numeric: tabular-nums; color: var(--muted); }
+
+  .stagebox { background: #fff; border: 2px solid var(--border); border-radius: 18px; padding: 10px 6px 2px; }
+  svg text { font-family: var(--body); }
+  .node circle { fill: #fff; stroke: var(--ink); stroke-width: 3; transition: all .25s ease-out; }
+  .node text { font-size: 22px; font-weight: 800; fill: var(--ink); text-anchor: middle; dominant-baseline: central; }
+  .node.cmp circle { stroke: var(--amber); stroke-width: 6; }
+  .node.pass circle { stroke: var(--green); fill: var(--green-soft); }
+  .node.fail circle { stroke: var(--red); fill: var(--red-soft); }
+  .node.ghost circle { stroke-dasharray: 6 5; stroke: var(--muted); fill: var(--amber-soft); }
+  .node.ghost text { fill: var(--muted); font-size: 15px; }
+  .edge { stroke: #c9b98a; stroke-width: 3; stroke-linecap: round; }
+  .axis { stroke: var(--red); stroke-width: 2.5; stroke-dasharray: 8 7; opacity: .55; }
+  .axis-label { fill: var(--red); font-size: 13px; font-weight: 800; }
+  .pairline { stroke-width: 3.5; stroke-dasharray: 7 6; fill: none; transition: opacity .2s ease-out; }
+  .pairline.ok { stroke: var(--green); } .pairline.bad { stroke: var(--red); }
+  .pairline.mute { opacity: 0; }
+
+  .narrate {
+    margin-top: 14px; min-height: 76px; border-radius: 14px; padding: 14px 18px;
+    background: var(--amber-soft); border: 2px solid #F3E1A8;
+    font-size: 16.5px; line-height: 1.85;
+  }
+  .verdict { display: inline-block; font-weight: 800; border-radius: 8px; padding: 1px 10px; margin-right: 6px; }
+  .verdict.ok { background: var(--green-soft); color: var(--green); }
+  .verdict.bad { background: var(--red-soft); color: var(--red-deep); }
+
+  /* ── 三连问卡组 ── */
+  .cards { display: grid; grid-template-columns: repeat(4, 1fr); gap: 16px; }
+  @media (max-width: 860px) { .cards { grid-template-columns: 1fr 1fr; } }
+  @media (max-width: 520px) { .cards { grid-template-columns: 1fr; } }
+  .rule { border-radius: 18px; padding: 18px; border: 2px solid var(--border); background: #fff; }
+  .rule .chip {
+    width: 44px; height: 44px; border-radius: 13px; display: flex;
+    align-items: center; justify-content: center; margin-bottom: 12px;
+  }
+  .rule .chip svg { width: 24px; height: 24px; }
+  .chip.g { background: var(--green-soft); color: var(--green); }
+  .chip.r { background: var(--red-soft); color: var(--red); }
+  .chip.a { background: var(--amber-soft); color: var(--amber); }
+  .rule h3 { margin: 0 0 6px; font-size: 18px; font-family: var(--disp); }
+  .rule p { margin: 0; color: var(--muted); font-size: 14.5px; line-height: 1.75; }
+  .rule.trap { background: var(--red-soft); border-color: #F5C6C6; }
+  .rule.trap h3 { color: var(--red-deep); }
+
+  /* ── 代码 ── */
+  .codegrid { display: grid; grid-template-columns: minmax(0, 1.25fr) minmax(0, 1fr); gap: 22px; align-items: start; }
+  @media (max-width: 860px) { .codegrid { grid-template-columns: 1fr; } }
+  pre.code {
+    margin: 0; background: var(--ink); color: #F8FAFC; border-radius: 18px;
+    padding: 20px 18px; overflow-x: auto;
+    font-family: ui-monospace, "SF Mono", Menlo, Consolas, monospace;
+    font-size: 13.8px; line-height: 2.05;
+  }
+  .code .kw { color: #FCA5A5; } .code .fn { color: #FCD34D; } .code .cm { color: #94A3B8; }
+  .points { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 14px; }
+  .points li {
+    background: #fff; border: 2px solid var(--border); border-radius: 14px; padding: 13px 16px;
+    font-size: 15px;
+  }
+  .points b { color: var(--red-deep); }
+
+  /* ── 测验 ── */
+  .quizbox { text-align: center; }
+  .qmeta { display: flex; justify-content: center; gap: 8px; margin-bottom: 12px; }
+  .qmeta i { width: 34px; height: 8px; border-radius: 4px; background: var(--border); }
+  .qmeta i.on { background: var(--amber); }
+  .qtitle { font-weight: 800; font-size: 18px; margin: 4px 0 8px; }
+  .qbtns { display: flex; justify-content: center; gap: 14px; margin: 14px 0 6px; }
+  .feedback { min-height: 58px; border-radius: 12px; padding: 10px 16px; font-size: 15.5px; line-height: 1.8; }
+  .feedback.ok { background: var(--green-soft); color: var(--green); font-weight: 700; }
+  .feedback.no { background: var(--red-soft); color: var(--red-deep); }
+  .qbtns button svg { width: 17px; height: 17px; }
+
+  /* ── 口诀 ── */
+  .motto {
+    background: var(--ink); color: var(--cream); border-radius: 22px;
+    padding: 30px 26px; text-align: center;
+  }
+  .motto h2 { justify-content: center; color: var(--amber); margin-bottom: 10px; }
+  .motto p { font-size: 19px; margin: 6px 0; font-weight: 700; }
+  .motto small { color: #C7D2E0; font-size: 14px; }
+  .motto a { color: var(--amber); font-weight: 700; }
+
+  footer { text-align: center; color: var(--muted); font-size: 13px; margin-top: 34px; }
+
+  @media (max-width: 700px) { .deco { display: none; } }
+  @media (prefers-reduced-motion: reduce) {
+    * { transition: none !important; animation: none !important; }
+  }
+</style>
+</head>
+<body>
+<div class="wrap">
+
+<header>
+  <svg class="deco l" width="86" height="86" viewBox="0 0 86 86" aria-hidden="true">
+    <circle cx="60" cy="30" r="18" fill="#D97706"/><circle cx="34" cy="58" r="12" fill="#DC2626"/>
+    <path d="M70 66 L84 80 L56 80 Z" fill="#0F172A"/>
+  </svg>
+  <svg class="deco r" width="86" height="86" viewBox="0 0 86 86" aria-hidden="true">
+    <circle cx="26" cy="30" r="18" fill="#D97706"/><circle cx="52" cy="58" r="12" fill="#DC2626"/>
+    <path d="M16 66 L2 80 L30 80 Z" fill="#0F172A"/>
+  </svg>
+  <span class="kicker">LEETCODE 101 · 对称二叉树</span>
+  <h1>一棵树，<span class="mir">照镜子</span></h1>
+  <p class="sub">上一题我们把树<b>翻转</b>了，这一题只问一句：<b>这棵树照镜子之后，还和原来一样吗？</b>
+  这个页面不讲大道理——拖动下面的"镜子实验室"，亲眼看"交叉配对"怎么一步步走完全树。</p>
+</header>
+
+<!-- ═══ 1. 镜子实验室 ═══ -->
+<section aria-label="镜子实验室">
+  <h2><span class="no">1</span>镜子实验室：亲眼看交叉配对</h2>
+  <div class="card">
+    <div class="controls">
+      <label for="caseSel" style="font-weight:700; font-size:14px;">案例</label>
+      <select id="caseSel">
+        <option value="ok" selected>对称的树（返回 true）</option>
+        <option value="no">不对称的树（返回 false）</option>
+      </select>
+      <button class="btn" id="bPrev" aria-label="上一步">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"><path d="M15 18l-6-6 6-6"/></svg>上一步
+      </button>
+      <button class="btn go" id="bNext" aria-label="下一步">
+        下一步<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"><path d="M9 18l6-6-6-6"/></svg>
+      </button>
+      <button class="btn" id="bPlay" aria-label="自动播放">
+        <svg id="icoP" viewBox="0 0 24 24" fill="currentColor"><path d="M8 5.5v13l11-6.5z"/></svg>
+        <svg id="icoS" viewBox="0 0 24 24" fill="currentColor" style="display:none"><rect x="6" y="5" width="4" height="14" rx="1"/><rect x="14" y="5" width="4" height="14" rx="1"/></svg>自动
+      </button>
+      <button class="btn" id="bReset" aria-label="重置">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"><path d="M3 12a9 9 0 1 0 3-6.7"/><path d="M3 4v5h5"/></svg>重置
+      </button>
+      <span class="counter" id="counter">第 1 / 1 步</span>
+    </div>
+    <div class="stagebox">
+      <svg id="stage" viewBox="0 0 680 300" role="img" aria-label="二叉树与镜面轴示意图"></svg>
+    </div>
+    <p class="narrate" id="narrate" aria-live="polite"></p>
+  </div>
+</section>
+
+<!-- ═══ 2. 三连问 ═══ -->
+<section aria-label="check 函数的三连问">
+  <h2><span class="no">2</span>check 函数的三连问（顺序不能换！）</h2>
+  <div class="cards">
+    <div class="rule">
+      <div class="chip g"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6L9 17l-5-5"/></svg></div>
+      <h3>第一问：两个都空？</h3>
+      <p><b style="color:var(--green)">通过。</b>两边都走到了尽头，这一支从头对称到底——它是对称的"最底层证据"。</p>
+    </div>
+    <div class="rule">
+      <div class="chip r"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="M18 6L6 18M6 6l12 12"/></svg></div>
+      <h3>第二问：只有一边空？</h3>
+      <p><b style="color:var(--red-deep)">拦下。</b>一个有孩子、一个没有，形状都不同了，必定不对称。</p>
+    </div>
+    <div class="rule">
+      <div class="chip a"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="M12 9v4M12 17h.01"/><circle cx="12" cy="12" r="9"/></svg></div>
+      <h3>第三问：值不一样？</h3>
+      <p><b style="color:var(--red-deep)">拦下。</b>形状对了，镜子里的数字也得一样才行。</p>
+    </div>
+    <div class="rule trap">
+      <div class="chip r"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2L2 20h20z"/><path d="M12 10v4M12 17h.01"/></svg></div>
+      <h3>顺序反了会怎样？</h3>
+      <p>先问"单空"的话，<b>(空, 空)</b> 这对模范组合会被误判成不对称。实测 <b>[1,2,2]</b> 会错答 false——所以必须<b>先双空</b>！</p>
+    </div>
+  </div>
+</section>
+
+<!-- ═══ 3. 代码 ═══ -->
+<section aria-label="代码讲解">
+  <h2><span class="no">3</span>代码是怎么长出来的</h2>
+  <div class="codegrid">
+    <pre class="code"><span class="kw">class</span> <span class="fn">Solution</span>:
+    <span class="kw">def</span> <span class="fn">isSymmetric</span>(<span class="kw">self</span>, root) -&gt; bool:
+        <span class="kw">def</span> <span class="fn">check</span>(left, right) -&gt; bool:
+            <span class="kw">if</span> left <span class="kw">is</span> <span class="kw">None</span> <span class="kw">and</span> right <span class="kw">is</span> <span class="kw">None</span>:  <span class="cm"># 一问：双空</span>
+                <span class="kw">return</span> <span class="kw">True</span>
+            <span class="kw">if</span> left <span class="kw">is</span> <span class="kw">None</span> <span class="kw">or</span> right <span class="kw">is</span> <span class="kw">None</span>:   <span class="cm"># 二问：单空</span>
+                <span class="kw">return</span> <span class="kw">False</span>
+            <span class="kw">if</span> left.val != right.val:            <span class="cm"># 三问：值不同</span>
+                <span class="kw">return</span> <span class="kw">False</span>
+            <span class="kw">return</span> <span class="fn">check</span>(left.left, right.right) <span class="kw">and</span> <span class="fn">check</span>(left.right, right.left)
+        <span class="kw">return</span> <span class="fn">check</span>(root, root)   <span class="cm"># 起手式：树和自己的镜像比</span></pre>
+    <ul class="points">
+      <li><b>起手式 check(root, root)</b>：派两个"影子分身"都从根出发——一个按原样走左，一个按镜像走右。不用真的翻转，影子替你比。</li>
+      <li><b>交叉递归</b>：check(左.左, 右.右) 是外侧配外侧；check(左.右, 右.左) 是内侧配内侧。"交叉"二字就在参数里。</li>
+      <li><b>and 会短路</b>：前一对已经 False，后一对根本不跑——一票否决，立刻返回，一步都不浪费。</li>
+      <li><b>复杂度</b>：时间 O(n)（每节点查一次）；空间 O(h)（递归栈 = 树高）。</li>
+    </ul>
+  </div>
+</section>
+
+<!-- ═══ 4. 小测验 ═══ -->
+<section aria-label="小测验">
+  <h2><span class="no">4</span>小测验：你来当镜子</h2>
+  <div class="card quizbox">
+    <div class="qmeta" id="qmeta"><i class="on"></i><i></i><i></i></div>
+    <p class="qtitle" id="qTitle"></p>
+    <div style="display:flex; justify-content:center;"><svg id="qSvg" viewBox="0 0 380 220" width="380" height="220" role="img" aria-label="测验用二叉树"></svg></div>
+    <div class="qbtns">
+      <button class="btn" id="qYes" disabled>
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6L9 17l-5-5"/></svg>对称
+      </button>
+      <button class="btn" id="qNo" disabled>
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="M18 6L6 18M6 6l12 12"/></svg>不对称
+      </button>
+    </div>
+    <p class="feedback" id="qFeed">看树，选"对称"或"不对称"。</p>
+    <button class="btn" id="qNext" style="visibility:hidden">下一题 →</button>
+  </div>
+</section>
+
+<!-- ═══ 5. 口诀 ═══ -->
+<section class="motto">
+  <h2>一句口诀带回家</h2>
+  <p>双空过 · 单空拦 · 值不同拦 · 交叉递归</p>
+  <small>想练手感？回 LeetCode 提交这版递归，再试试用"队列成对出队"写出迭代版。<br>
+  笔记：[[对称二叉树-讲解]] · <a href="https://leetcode.cn/problems/symmetric-tree/" target="_blank" rel="noopener">力扣原题</a></small>
+</section>
+
+<footer>为本笔记库《101. 对称二叉树》定制 · 配合笔记食用效果最佳</footer>
+</div>
+
+<script>
+/* ═══ 数据：两棵案例树 ═══ */
+function N(id, val, x, y, ghost) { return {id:id, val:val, x:x, y:y, ghost:!!ghost}; }
+const CX = 340;
+const CASES = {
+  ok: {
+    nodes: [ N('1',1,CX,46), N('2',2,CX-110,130), N('2r',2,CX+110,130),
+             N('3',3,CX-172,214), N('4',4,CX-48,214), N('4r',4,CX+48,214), N('3r',3,CX+172,214) ],
+    edges: [ ['1','2'], ['1','2r'], ['2','3'], ['2','4'], ['2r','4r'], ['2r','3r'] ],
+    steps: [
+      {a:'1', b:'1', ok:true,  text:'门口第一对：根 1 ↔ 根 1，自己和自己比，值相等。生成两对交叉配对，往下走。'},
+      {a:'2', b:'2r', ok:true,  text:'第二对：左孩子 2 ↔ 右孩子 2，相等。继续生成它们的交叉配对。'},
+      {a:'3', b:'3r', ok:true,  text:'外侧配外侧：左 2 的左孩子 3 ↔ 右 2 的右孩子 3。相等，通过。'},
+      {a:'4', b:'4r', ok:true,  text:'内侧配内侧：左 2 的右孩子 4 ↔ 右 2 的左孩子 4。相等，通过。'},
+      {a:null,b:null, ok:true,  text:'两对新生配对都是 (空, 空)：双空 → 通过。递归到头了。'},
+      {a:null,b:null, ok:true, done:true, text:'所有配对全部通过 → 这棵树轴对称，返回 true。'},
+    ]
+  },
+  no: {
+    nodes: [ N('1',1,CX,46), N('2',2,CX-110,130), N('2r',2,CX+110,130),
+             N('3',3,CX-48,214), N('G',3,CX+48,214,true) ],
+    edges: [ ['1','2'], ['1','2r'], ['2','3'], ['2r','G'] ],
+    steps: [
+      {a:'1', b:'1', ok:true,  text:'门口第一对：根 1 ↔ 根 1，自己和自己比，值相等。生成交叉配对，往下走。'},
+      {a:'2', b:'2r', ok:true,  text:'第二对：左孩子 2 ↔ 右孩子 2，相等。生成交叉配对：左 2 的右孩子 ↔ 右 2 的左孩子。'},
+      {a:'3', b:'G',  ok:false, text:'这一对出事了：左 2 的右孩子是 3，可它在右半边的镜像位置（右 2 的左孩子）是空的！单空 → 拦下，返回 false。'},
+      {a:null,b:null, ok:false, done:true, text:'and 会短路：一对失败，另一对根本不用查 → 整棵树不对称，返回 false。'},
+    ]
+  }
+};
+
+/* ═══ 渲染 ═══ */
+const svgNS = 'http://www.w3.org/2000/svg';
+let cur = 0, timer = null, nodes = [], edges = [];
+
+function el(tag, attrs) {
+  const e = document.createElementNS(svgNS, tag);
+  for (const k in attrs) e.setAttribute(k, attrs[k]);
+  return e;
+}
+function drawTree(cs) {
+  const stage = document.getElementById('stage');
+  stage.innerHTML = '';
+  nodes = cs.nodes; edges = cs.edges;
+  const byId = {}; nodes.forEach(n => byId[n.id] = n);
+  // 镜面轴
+  stage.appendChild(el('line', {x1:CX, y1:18, x2:CX, y2:282, class:'axis'}));
+  const t1 = el('text', {x:CX-10, y:30, class:'axis-label', 'text-anchor':'end'}); t1.textContent = '镜子';
+  const t2 = el('text', {x:CX+10, y:30, class:'axis-label'}); t2.textContent = '镜子';
+  stage.appendChild(t1); stage.appendChild(t2);
+  // 边
+  edges.forEach(([a,b]) => {
+    const A = byId[a], B = byId[b];
+    stage.appendChild(el('line', {x1:A.x, y1:A.y, x2:B.x, y2:B.y, class:'edge'}));
+  });
+  // 节点
+  nodes.forEach(n => {
+    const g = el('g', {class:'node', 'data-id':n.id});
+    g.appendChild(el('circle', {cx:n.x, cy:n.y, r:24}));
+    const tx = el('text', {x:n.x, y:n.y});
+    tx.textContent = n.ghost ? '空' : n.val;
+    g.appendChild(tx);
+    stage.appendChild(g);
+  });
+}
+function highlight(step) {
+  document.querySelectorAll('.node').forEach(g => g.classList.remove('cmp','pass','fail'));
+  document.querySelectorAll('.pairline').forEach(x => x.remove());
+  const stage = document.getElementById('stage');
+  const byId = {}; nodes.forEach(n => byId[n.id] = n);
+  if (step.a && step.b) {
+    const A = byId[step.a], B = byId[step.b];
+    const same = step.a === step.b;
+    [A, B].forEach(n => {
+      const g = document.querySelector('.node[data-id="' + n.id + '"]');
+      if (g) g.classList.add('cmp', step.ok ? 'pass' : 'fail');
+    });
+    if (!same) {
+      const line = el('path', {
+        d: 'M ' + A.x + ' ' + A.y + ' C ' + CX + ' ' + (A.y - 40) + ', ' + CX + ' ' + (B.y - 40) + ', ' + B.x + ' ' + B.y,
+        class: 'pairline ' + (step.ok ? 'ok' : 'bad')
+      });
+      stage.insertBefore(line, stage.firstChild);
+    }
+  }
+}
+function render() {
+  const cs = CASES[document.getElementById('caseSel').value];
+  const step = cs.steps[cur];
+  drawTree(cs);
+  highlight(step);
+  document.getElementById('narrate').innerHTML =
+    (step.done ? '<span class="verdict ' + (step.ok ? 'ok">完成' : 'bad">结论') + '</span>'
+               : '<span class="verdict ' + (step.ok ? 'ok">✓ 通过' : 'bad">✕ 拦下') + '</span>')
+    + step.text;
+  document.getElementById('counter').textContent = '第 ' + (cur + 1) + ' / ' + cs.steps.length + ' 步';
+  document.getElementById('bPrev').disabled = cur === 0;
+  document.getElementById('bNext').disabled = cur === cs.steps.length - 1;
+}
+
+/* ═══ 控制 ═══ */
+function stopPlay() {
+  if (timer) { clearInterval(timer); timer = null;
+    document.getElementById('icoP').style.display = ''; document.getElementById('icoS').style.display = 'none'; }
+}
+function rebuild() { stopPlay(); cur = 0; render(); }
+document.getElementById('bNext').onclick = () => { stopPlay(); const n = CASES[document.getElementById('caseSel').value].steps.length; if (cur < n-1) { cur++; render(); } };
+document.getElementById('bPrev').onclick = () => { stopPlay(); if (cur > 0) { cur--; render(); } };
+document.getElementById('bReset').onclick = () => rebuild();
+document.getElementById('caseSel').onchange = () => rebuild();
+document.getElementById('bPlay').onclick = function() {
+  if (timer) { stopPlay(); return; }
+  document.getElementById('icoP').style.display = 'none'; document.getElementById('icoS').style.display = '';
+  const n = CASES[document.getElementById('caseSel').value].steps.length;
+  timer = setInterval(() => { if (cur < n-1) { cur++; render(); } else stopPlay(); }, 1600);
+};
+document.addEventListener('keydown', e => {
+  if (e.key === 'ArrowRight') document.getElementById('bNext').click();
+  if (e.key === 'ArrowLeft') document.getElementById('bPrev').click();
+});
+render();
+
+/* ═══ 小测验 ═══ */
+const QUIZ = [
+  { title: '第 1 题：这棵树对称吗？',
+    nodes: [ N('1',1,190,36), N('2',2,95,108), N('2r',2,285,108), N('3',3,48,182), N('4',4,142,182), N('4r',4,238,182), N('3r',3,332,182) ],
+    edges: [ ['1','2'],['1','2r'],['2','3'],['2','4'],['2r','4r'],['2r','3r'] ],
+    answer: true,
+    why: '交叉配对全过：左2的左3 ↔ 右2的右3，左2的右4 ↔ 右2的左4。这是例 1 的同款结构。' },
+  { title: '第 2 题：这棵树对称吗？（小心陷阱）',
+    nodes: [ N('1',1,190,36), N('2',2,95,108), N('2r',2,285,108), N('3',3,48,182), N('3r',3,238,182) ],
+    edges: [ ['1','2'],['1','2r'],['2','3'],['2r','3r'] ],
+    answer: false,
+    why: '两个 3 都挂在左边——这是"平移"不是"镜像"！交叉配对：左2的左3 ↔ 右2的右（空）❌。' },
+  { title: '第 3 题：这棵树对称吗？',
+    nodes: [ N('1',1,190,36), N('2',2,95,108), N('2r',2,285,108), N('4',4,142,182), N('4r',4,238,182) ],
+    edges: [ ['1','2'],['1','2r'],['2','4'],['2r','4r'] ],
+    answer: true,
+    why: '交叉配对：左2的左（空）↔ 右2的右（空）✅；左2的右4 ↔ 右2的左4 ✅。空对空也算对称。' },
+];
+let qi = 0, answered = 0, score = 0;
+function drawQuiz() {
+  const q = QUIZ[qi];
+  document.getElementById('qTitle').textContent = q.title;
+  const svg = document.getElementById('qSvg'); svg.innerHTML = '';
+  const byId = {};
+  q.nodes.forEach(n => byId[n.id] = n);
+  q.edges.forEach(([a,b]) => {
+    const A = byId[a], B = byId[b];
+    svg.appendChild(el('line', {x1:A.x, y1:A.y, x2:B.x, y2:B.y, class:'edge'}));
+  });
+  q.nodes.forEach(n => {
+    const g = el('g', {class:'node'});
+    g.appendChild(el('circle', {cx:n.x, cy:n.y, r:19}));
+    const tx = el('text', {x:n.x, y:n.y}); tx.textContent = n.val;
+    g.appendChild(tx); svg.appendChild(g);
+    byId[n.id] = n;
+  });
+  document.getElementById('qFeed').className = 'feedback';
+  document.getElementById('qFeed').textContent = '看树，选"对称"或"不对称"。';
+  document.getElementById('qYes').disabled = false;
+  document.getElementById('qNo').disabled = false;
+  document.getElementById('qNext').style.visibility = 'hidden';
+  document.querySelectorAll('#qmeta i').forEach((d, k) => d.classList.toggle('on', k <= qi));
+}
+function answer(said) {
+  const q = QUIZ[qi];
+  const right = said === q.answer;
+  if (right) score++;
+  answered++;
+  const fb = document.getElementById('qFeed');
+  fb.className = 'feedback ' + (right ? 'ok' : 'no');
+  fb.textContent = (right ? '答对了！' : '答错啦。') + q.why;
+  document.getElementById('qYes').disabled = true;
+  document.getElementById('qNo').disabled = true;
+  document.getElementById('qNext').style.visibility = 'visible';
+  document.getElementById('qNext').textContent = qi < QUIZ.length - 1 ? '下一题 →' : '看成绩 →';
+}
+document.getElementById('qYes').onclick = () => answer(true);
+document.getElementById('qNo').onclick = () => answer(false);
+document.getElementById('qNext').onclick = function() {
+  if (qi === -1) {                       // 成绩页 → 再玩一次
+    qi = 0; score = 0;
+    this.textContent = '下一题 →';
+    drawQuiz();
+    return;
+  }
+  if (qi < QUIZ.length - 1) {            // 下一题
+    qi++;
+    drawQuiz();
+    return;
+  }
+  // 全部答完 → 成绩页
+  document.getElementById('qTitle').textContent = '成绩：' + score + ' / ' + QUIZ.length;
+  document.getElementById('qSvg').innerHTML = '';
+  const fb = document.getElementById('qFeed');
+  fb.className = 'feedback ok';
+  fb.textContent = score === 3 ? '满分！你已经会"当镜子"了。'
+                : score === 2 ? '不错！把交叉配对口诀再念一遍。'
+                : '回"镜子实验室"再走一遍，你一定行。';
+  this.textContent = '再玩一次 ↺';
+  qi = -1;                               // 标记：下次点击 = 重开
+};
+drawQuiz();
+</script>
+</body>
+</html>

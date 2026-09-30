@@ -1,0 +1,11 @@
+# ── Agent 私有内容，不上传 ──
+AGENTS.md
+交接文档.md
+skills-配置.md
+agent-memory/
+归档/
+
+# ── 系统/临时垃圾 ──
+.DS_Store
+__pycache__/
+*.pyc
